@@ -1,4 +1,14 @@
 # 
+import requests
+
+taxosaurus_base="http://taxosaurus.org/"
+
+def lookup_taxosaurus(name):
+    payload={'query': name}
+    response = requests.post(taxosaurus_base + 'submit',params=payload)
+    while response.status_code == 302:
+        response = requests.get(response.url)
+    return response.json()
 
 
 from optparse import OptionParser
@@ -25,6 +35,8 @@ def main():
 
     for line in content:
         print line.strip()
+        result = lookup_taxosaurus(line) # hash
+        print result
 
 
 if __name__ == "__main__":
