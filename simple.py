@@ -63,7 +63,7 @@ def main():
 
     fname = grab_file(options, args)
     if (options.m_threshold != None and options.m_threshold != MATCH_THRESHOLD):
-        MATCH_THRESHOLD = options.m_threshold
+        MATCH_THRESHOLD = float(options.m_threshold)
 
     print MATCH_THRESHOLD
     with codecs.open(fname, 'r', encoding='utf-8') as f:
