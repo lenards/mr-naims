@@ -1,5 +1,6 @@
 # 
 import requests
+import codecs
 from optparse import OptionParser
 
 taxosaurus_base="http://taxosaurus.org/"
@@ -22,13 +23,23 @@ def grab_file(options, args):
     if (options.filename == None):
         return args[0]
     return options.filename
+
+def replace_names(mapping, source_name, dest_name):
+    with codecs.open(source_name, 'r', encoding='utf-8') as source:
+        with codecs.open(dest_name, 'w', encoding='utf-8') as dest:
+            for line in source:
+                for key in mapping.keys():
+                    val = mapping[key]
+                    if (val != None):
+                        line = line.replace(key,val)
+                dest.write(line)
     
 def main():
     (options, args) = get_args()
 
     fname = grab_file(options, args)
 
-    with open(fname) as f:
+    with codecs.open(fname, 'r', encoding='utf-8') as f:
         content = f.readlines()
         result = lookup_taxosaurus(''.join(content))
 #        print result
@@ -46,16 +57,7 @@ def main():
             if (accepted != ""):
                 mapping[submittedName] = accepted
 
-    with open(fname + '.clean', 'w') as out:
-        for key in mapping.keys():
-            val = mapping[key]
-            print val
-            if (val != None):
-                out.write(val + '\n')
-            else:
-                out.write(key + '\n')
-
-#    print mapping
+    replace_names(mapping, fname, fname + '.clean')
 
 if __name__ == "__main__":
     main()
