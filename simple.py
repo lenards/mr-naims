@@ -29,7 +29,12 @@ def get_args():
               metavar="MATCH_SCORE_THRESHOLD")
     return parser.parse_args()
 
+# Returns the assumed input file
 def grab_file(options, args):
+    """
+    If the --file/-f argument is not pass in, assume the first
+    positional argument is the filename to operate on
+    """
     if (options.filename == None):
         return args[0]
     return options.filename
