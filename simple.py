@@ -1,6 +1,7 @@
 # 
 import requests
 import codecs
+import time
 from optparse import OptionParser
 
 taxosaurus_base="http://taxosaurus.org/"
@@ -10,6 +11,7 @@ def lookup_taxosaurus(name):
     payload={'query': name}
     response = requests.post(taxosaurus_base + 'submit',params=payload)
     while response.status_code == 302:
+        time.sleep(0.5)
         response = requests.get(response.url)
     return response.json()
 
@@ -77,7 +79,7 @@ def main():
         matches = name['matches']
         submittedName = name['submittedName']
         if (len(matches) >= 1):
-            match = get_best_match(matches, 0.9)
+            match = get_best_match(matches, MATCH_THRESHOLD)
             if match:
                 # match met the minimum, create a mapping
                 accepted = match['acceptedName'] 
