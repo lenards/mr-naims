@@ -31,8 +31,31 @@ def main():
     with open(fname) as f:
         content = f.readlines()
         result = lookup_taxosaurus(''.join(content))
-        print result
+#        print result
 
+    names = result['names']
+    mapping = dict()
+
+    for name in names:
+        matches = name['matches']
+        submittedName = name['submittedName']
+        if (len(matches) >= 1):
+            # grab the first match for now
+            match = matches[0]
+            accepted = match['acceptedName'] 
+            if (accepted != ""):
+                mapping[submittedName] = accepted
+
+    with open(fname + '.clean', 'w') as out:
+        for key in mapping.keys():
+            val = mapping[key]
+            print val
+            if (val != None):
+                out.write(val + '\n')
+            else:
+                out.write(key + '\n')
+
+#    print mapping
 
 if __name__ == "__main__":
     main()
