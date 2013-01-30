@@ -50,9 +50,11 @@ def replace_names(mapping, source_filename, dest_filename):
                         line = val + '\n'
                 dest.write(line)
 
-# Returns the best match from the list of matches,
-# provided that the minimum score is exceeded
 def get_best_match(matches, minscore):
+    """
+    Returns the best match from the list of matches,
+    provided that the minimum score is exceeded
+    """ 
     # Filter to the matches that meet the minimum score
     filtered = [m for m in matches if float(m['score']) >= minscore]
     if (len(filtered) == 0):
