@@ -30,10 +30,7 @@ def main():
 
     with open(fname) as f:
         content = f.readlines()
-
-    for line in content:
-        print line.strip()
-        result = lookup_taxosaurus(line) # hash
+        result = lookup_taxosaurus(''.join(content))
         print result
 
 
