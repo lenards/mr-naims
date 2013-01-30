@@ -24,9 +24,9 @@ def grab_file(options, args):
         return args[0]
     return options.filename
 
-def replace_names(mapping, source_name, dest_name):
-    with codecs.open(source_name, 'r', encoding='utf-8') as source:
-        with codecs.open(dest_name, 'w', encoding='utf-8') as dest:
+def replace_names(mapping, source_filename, dest_filename):
+    with codecs.open(source_filename, 'r', encoding='utf-8') as source:
+        with codecs.open(dest_filename, 'w', encoding='utf-8') as dest:
             for line in source:
                 for key in mapping.keys():
                     val = mapping[key]
