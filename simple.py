@@ -4,6 +4,7 @@ import codecs
 from optparse import OptionParser
 
 taxosaurus_base="http://taxosaurus.org/"
+MATCH_THRESHOLD=0.9
 
 def lookup_taxosaurus(name):
     payload={'query': name}
@@ -13,10 +14,17 @@ def lookup_taxosaurus(name):
     return response.json()
 
 def get_args():
-    parser = OptionParser()
+    m_thres_help = ("the matching score threshold to use, defined as a " \
+                   "decimal, all matches equal to or greater will be replaced." \
+                   " The default is %s") % MATCH_THRESHOLD
+    usage = "usage:\n %prog [options] file-input\n or\n %prog [options] --file file-input"
+
+    parser = OptionParser(usage=usage)
     parser.add_option("-f", "--file", dest="filename",
               help="the file, FILE, read from...", metavar="FILE")
-
+    parser.add_option("--match-threshold", dest="m_threshold", 
+              default=MATCH_THRESHOLD, help=m_thres_help, 
+              metavar="MATCH_SCORE_THRESHOLD")
     return parser.parse_args()
 
 def grab_file(options, args):
@@ -35,10 +43,14 @@ def replace_names(mapping, source_filename, dest_filename):
                 dest.write(line)
     
 def main():
+    global MATCH_THRESHOLD
     (options, args) = get_args()
 
     fname = grab_file(options, args)
+    if (options.m_threshold != None and options.m_threshold != MATCH_THRESHOLD):
+        MATCH_THRESHOLD = options.m_threshold
 
+    print MATCH_THRESHOLD
     with codecs.open(fname, 'r', encoding='utf-8') as f:
         content = f.readlines()
         result = lookup_taxosaurus(''.join(content))
@@ -46,6 +58,7 @@ def main():
 
     names = result['names']
     mapping = dict()
+    prov_report = dict() 
 
     for name in names:
         matches = name['matches']
