@@ -41,6 +41,18 @@ def replace_names(mapping, source_filename, dest_filename):
                     if (val != None):
                         line = line.replace(key,val)
                 dest.write(line)
+
+# Returns the best match from the list of matches,
+# provided that the minimum score is exceeded
+def get_best_match(matches, minscore):
+    # Filter to the matches that meet the minimum score
+    filtered = [m for m in matches if float(m['score']) >= minscore]
+    if (len(filtered) == 0):
+        # Nothing in the list met the minimum score
+        return None 
+    else:
+        # sort by score and return the highest
+        return sorted(filtered, key=lambda k: float(k['score']))[-1]
     
 def main():
     global MATCH_THRESHOLD
@@ -64,11 +76,12 @@ def main():
         matches = name['matches']
         submittedName = name['submittedName']
         if (len(matches) >= 1):
-            # grab the first match for now
-            match = matches[0]
-            accepted = match['acceptedName'] 
-            if (accepted != ""):
-                mapping[submittedName] = accepted
+            match = get_best_match(matches, 0.9)
+            if match:
+                # match met the minimum, create a mapping
+                accepted = match['acceptedName'] 
+                if (accepted != ""):
+                    mapping[submittedName] = accepted
 
     replace_names(mapping, fname, fname + '.clean')
 
