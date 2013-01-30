@@ -1,5 +1,6 @@
 # 
 import requests
+from optparse import OptionParser
 
 taxosaurus_base="http://taxosaurus.org/"
 
@@ -9,9 +10,6 @@ def lookup_taxosaurus(name):
     while response.status_code == 302:
         response = requests.get(response.url)
     return response.json()
-
-
-from optparse import OptionParser
 
 def get_args():
     parser = OptionParser()
