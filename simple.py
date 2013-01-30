@@ -36,10 +36,11 @@ def replace_names(mapping, source_filename, dest_filename):
     with codecs.open(source_filename, 'r', encoding='utf-8') as source:
         with codecs.open(dest_filename, 'w', encoding='utf-8') as dest:
             for line in source:
-                for key in mapping.keys():
+                key = line.rstrip()
+                if key in mapping.keys():
                     val = mapping[key]
                     if (val != None):
-                        line = line.replace(key,val)
+                        line = val + '\n'
                 dest.write(line)
 
 # Returns the best match from the list of matches,
