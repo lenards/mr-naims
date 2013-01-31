@@ -105,7 +105,7 @@ def log_record_in(report, name, match, matches):
         prov_record['score'] = match['score']
 
 
-def create_name_mapping(names, minscore):
+def create_name_mapping(names, match_threshold):
     """
     Returns the mapping of input to clean names above the minimum score
     and a report of all action taken
@@ -127,7 +127,7 @@ def create_name_mapping(names, minscore):
 
                 accepted = match['acceptedName']
                 score = float(match['score'])
-                if ((accepted != "") and (score >= minscore)):
+                if ((accepted != "") and (score >= match_threshold)):
                     mapping[submittedName] = accepted
             else:
                 log_record_in(prov_report, submittedName, match, matches)
