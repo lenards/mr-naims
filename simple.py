@@ -188,7 +188,7 @@ def main():
     writer = csv.DictWriter(sys.stdout, fieldnames=fields)
     writer.writerow(headers)
     for record in prov_report.keys():
-        writer.writerow(prov_report[record])
+        writer.writerow({k:v.encode('utf-8') for k,v in prov_report[record].items()})
 
     replaced = replace_names(names, mapping)
     # For now, just write the list out to file
