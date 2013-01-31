@@ -11,15 +11,18 @@ import time
 import json
 import sys
 import os
+import Bio.Phylo as phylo
 from optparse import OptionParser
 
 taxosaurus_url="http://taxosaurus.org/"
 gnrd_url='http://gnrd.globalnames.org/name_finder.json'
 MATCH_THRESHOLD=0.9
 
-def lookup_taxosaurus(names):
+def lookup_taxosaurus(names,limit_source):
     print('Calling Taxosaurus'),
     payload={'query': '\n'.join(names)}
+    if limit_source:
+        payload['source'] = limit_source
     response = requests.post(taxosaurus_url + 'submit',params=payload)
     while response.status_code == 302:
         print('.'),
@@ -41,11 +44,19 @@ def get_args():
     parser.add_option("-f", "--file", dest="filename",
               help="the file, FILE, read from...", metavar="FILE")
     parser.add_option("-s", "--skip-gnrd", 
-              help="interpret the file as a list of scientific names, do not lookup at GNRD",
+              help="Do not lookup names at GNRD.  Only valid for a text file or newick tree",
               dest="skip_gnrd",
               action="store_true",
               default=False)
-              
+    parser.add_option("-n", "--newick",
+              help="The file is a newick tree",
+              dest="is_newick",
+              action="store_true",
+              default=False)
+    parser.add_option("--source",
+              help="Limit taxosaurus to a single source: [MSW3|iPlant|NCBI]",
+              dest="limit_source",
+              default=None)
     parser.add_option("--match-threshold", dest="m_threshold", 
               default=MATCH_THRESHOLD, help=m_thres_help, 
               metavar="MATCH_SCORE_THRESHOLD")
@@ -146,7 +157,7 @@ def create_name_mapping(names, match_threshold):
     return mapping, prov_report
 
 
-def get_names_from_file(filename,skip_gnrd=False):
+def get_names_from_file(filename,skip_gnrd=False,is_newick=False):
     """
     Returns a list of names.
     If use_gnrd is false, it is assumed that there is one name per line
@@ -154,10 +165,22 @@ def get_names_from_file(filename,skip_gnrd=False):
     for name recognition, and the resulting list is returned
     """
     names = []
+    
+    # If the file is a newick tree, extract the terminal nodes
+    
     if(not skip_gnrd):
         # needs to be multipart/form-data
-        files={'file': (os.path.basename(filename), open(filename,'rb'))}
+        response = None
+        files = {}
         params={'unique':'false'}
+        base_filename = os.path.basename(filename)
+        if(is_newick):
+            # can't send a newick tree to gnrd, send the extracted terminal node names
+            tree = phylo.read(filename,'newick')
+            terminal_nodes = [x.name.replace('_',' ') for x in tree.get_terminals()]
+            files={'file': (base_filename, '\n'.join(terminal_nodes))}
+        else:
+            files={'file': (base_filename, open(filename,'rb'))}    
         print("Calling Global Names Discovery Service"),
         response = requests.get(gnrd_url, params=params, files=files)
         while response.json()['status'] == 303:
@@ -218,9 +241,9 @@ def main():
     if (options.m_threshold != None and options.m_threshold != MATCH_THRESHOLD):
         MATCH_THRESHOLD = float(options.m_threshold)
 
-    (names, names_dict) = get_names_from_file(fname, options.skip_gnrd)
+    (names, names_dict) = get_names_from_file(fname, options.skip_gnrd, options.is_newick)
     # names_dict contains results of GNRD extraction if performed
-    result = lookup_taxosaurus(names)
+    result = lookup_taxosaurus(names,options.limit_source)
     # Check for errors in taxosaurus lookup
     for source in result['metadata']['sources']:
         if 'errorMessage' in source.keys():
