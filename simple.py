@@ -9,6 +9,7 @@ import codecs
 import csv
 import time
 import json
+import sys
 from optparse import OptionParser
 
 taxosaurus_url="http://taxosaurus.org/"
@@ -16,12 +17,15 @@ gnrd_url='http://gnrd.globalnames.org/name_finder.json'
 MATCH_THRESHOLD=0.9
 
 def lookup_taxosaurus(names):
-    print "calling taxosaurus"
+    print('Calling Taxosaurus'),
     payload={'query': '\n'.join(names)}
     response = requests.post(taxosaurus_url + 'submit',params=payload)
     while response.status_code == 302:
+        print('.'),
+        sys.stdout.flush()
         time.sleep(0.5)
         response = requests.get(response.url)
+    print('')
     return response.json()
 
 
@@ -122,7 +126,6 @@ def create_name_mapping(names, match_threshold):
         if (len(matches) >= 1):
             match = get_best_match(matches)
             if match:
-                # match met the minimum, create a mapping
                 log_record_in(prov_report, submittedName, match, matches)
 
                 accepted = match['acceptedName']
@@ -147,21 +150,52 @@ def get_names_from_file(filename):
         # PDF file
         # needs to be multipart/form-data
         files={'file': ('filename.pdf', open(filename,'rb'))}
-        params={'unique':'true'}
-        print "calling gnrd"
+        params={'unique':'false'}
+        print("PDF Detected, Calling Global Names Discovery Service"),
         response = requests.get(gnrd_url, params=params, files=files)
-        print response.status_code
         while response.json()['status'] == 303:
-            print response.text
+            print('.'),
+            sys.stdout.flush()            
             time.sleep(0.5)
             response = requests.get(response.url)
-        names = [x['scientificName'] for x in response.json()['names']]
+        print('')
+        names_dict = {}
+        for name in response.json()['names']:
+            # response json with unique true
+            # {
+            #   "identifiedName": "Carnivora", 
+            #   "scientificName": "Carnivora", 
+            #   "verbatim": "Carnivora:"
+            # }
+            # 
+            # response json with unique false
+            # {
+            #   "identifiedName": "Halichoerus grypus", 
+            #   "offsetEnd": 3430, 
+            #   "offsetStart": 3411, 
+            #   "scientificName": "Halichoerus grypus", 
+            #   "verbatim": "(Halichoerus grypus)"
+            # }
+            scientific_name = name['scientificName']
+            name_dict = {} # keyed by scientificName
+            if scientific_name in names_dict.keys():
+                name_dict = names_dict[scientific_name]
+            else:
+                name_dict['scientific_name'] = name['scientificName']
+                name_dict['verbatims'] = []
+                name_dict['identified_names'] = []
+                name_dict['offsets'] = []
+            name_dict['verbatims'].append(name['verbatim'])
+            name_dict['identified_names'].append(name['identifiedName'])
+            name_dict['offsets'].append((name['offsetStart'], name['offsetEnd']))
+            names_dict[scientific_name] = name_dict
+        return (names_dict.keys(), names_dict)
     else:
         # text file
         with codecs.open(filename, 'r', encoding='utf-8') as f:
             for line in f:
                 names.append(line.rstrip())
-    return names
+    return (names, {})
 
 #######################################################
 # just testing the prov_report written to standard out
@@ -176,7 +210,8 @@ def main():
     if (options.m_threshold != None and options.m_threshold != MATCH_THRESHOLD):
         MATCH_THRESHOLD = float(options.m_threshold)
 
-    names = get_names_from_file(fname)
+    (names, names_dict) = get_names_from_file(fname)
+    # names_dict contains results of GNRD extraction if performed
     result = lookup_taxosaurus(names)
     (mapping, prov_report) = create_name_mapping(result['names'], MATCH_THRESHOLD)
 
