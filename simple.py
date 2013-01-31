@@ -25,6 +25,7 @@ def lookup_taxosaurus(names):
         sys.stdout.flush()
         time.sleep(0.5)
         response = requests.get(response.url)
+    response.raise_for_status()
     print('')
     return response.json()
 
@@ -158,6 +159,7 @@ def get_names_from_file(filename):
             sys.stdout.flush()            
             time.sleep(0.5)
             response = requests.get(response.url)
+        response.raise_for_status()
         print('')
         names_dict = {}
         for name in response.json()['names']:
@@ -213,6 +215,13 @@ def main():
     (names, names_dict) = get_names_from_file(fname)
     # names_dict contains results of GNRD extraction if performed
     result = lookup_taxosaurus(names)
+    # Check for errors in taxosaurus lookup
+    for source in result['metadata']['sources']:
+        if 'errorMessage' in source.keys():
+            print "Error querying %s: %s: %s" % (source['sourceId'], source['status'], source['errorMessage'])
+        else:
+            print "Queried %s: %s" % (source['sourceId'], source['status'])
+
     (mapping, prov_report) = create_name_mapping(result['names'], MATCH_THRESHOLD)
 
 #    fields = ('submittedName','accepted','sourceId','uri','score','otherMatches')
