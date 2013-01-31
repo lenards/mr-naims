@@ -77,20 +77,16 @@ def replace_names(names, mapping):
     return results
 
 
-def get_best_match(matches, minscore):
+def get_best_match(matches):
     """
-    Returns the best match from the list of matches,
-    provided that the minimum score is exceeded
+    Returns the best match from the list of matches
     """ 
-    # Filter to the matches that meet the minimum score
-    filtered = [m for m in matches if float(m['score']) >= minscore]
-    if (len(filtered) == 0):
-        # Nothing in the list met the minimum score
+    if (len(matches) == 0):
+        # No matches
         return None 
     else:
         # sort by score and return the highest
-        return sorted(filtered, key=lambda k: float(k['score']))[-1]
-
+        return sorted(matches, key=lambda k: float(k['score']))[-1]
 
 def log_record_in(report, name, match, matches):
     """
@@ -109,10 +105,10 @@ def log_record_in(report, name, match, matches):
         prov_record['score'] = match['score']
 
 
-def create_name_mapping(names):
+def create_name_mapping(names, minscore):
     """
-    Returns the mapping of input to clean names and a report of all
-    action taken
+    Returns the mapping of input to clean names above the minimum score
+    and a report of all action taken
     """
     mapping = dict()
     prov_report = dict() 
@@ -124,13 +120,14 @@ def create_name_mapping(names):
         prov_report[submittedName] = dict()
 
         if (len(matches) >= 1):
-            match = get_best_match(matches, MATCH_THRESHOLD)
+            match = get_best_match(matches)
             if match:
                 # match met the minimum, create a mapping
-                accepted = match['acceptedName']
                 log_record_in(prov_report, submittedName, match, matches)
 
-                if (accepted != ""):
+                accepted = match['acceptedName']
+                score = float(match['score'])
+                if ((accepted != "") and (score >= minscore)):
                     mapping[submittedName] = accepted
             else:
                 log_record_in(prov_report, submittedName, match, matches)
@@ -181,7 +178,7 @@ def main():
 
     names = get_names_from_file(fname)
     result = lookup_taxosaurus(names)
-    (mapping, prov_report) = create_name_mapping(result['names'])
+    (mapping, prov_report) = create_name_mapping(result['names'], MATCH_THRESHOLD)
 
 #    fields = ('submittedName','accepted','sourceId','uri','score','otherMatches')
     fields = ('submittedName','accepted','sourceId','uri','score')
