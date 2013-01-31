@@ -1,7 +1,9 @@
 # 
 import requests
 import codecs
+import csv
 import time
+import json
 from optparse import OptionParser
 
 taxosaurus_base="http://taxosaurus.org/"
@@ -62,22 +64,25 @@ def get_best_match(matches, minscore):
         # sort by score and return the highest
         return sorted(filtered, key=lambda k: float(k['score']))[-1]
 
+# Mutate the report's record for a given submitted name
+def log_record_in(report, name, match, matches):
+    prov_record = report[name]
+    prov_record['submittedName'] = name
+#   prov_record['otherMatches'] = json.dumps(matches)
+    if not match:
+        prov_record['accepted'] = 'none'
+    # if there's no match, then skip this
+    else:
+        prov_record['accepted'] = match['acceptedName']
+        prov_record['sourceId'] = match['sourceId']
+        prov_record['uri'] = match['uri']
+        prov_record['score'] = match['score']
+
+
+
 # Returns the mapping of input to clean names and a report of all
 # actions taken
 def create_name_mapping(names):
-
-    # A match JSON object from
-    #
-    # {
-    #     u'sourceId': u'iPlant_TNRS',
-    #     u'acceptedName': u'Spartina',
-    #     u'uri': u'http: //www.tropicos.org/Name/40002506',
-    #     u'matchedName': u'Spartina',
-    #     u'score': u'0.4945992525683',
-    #     u'annotations': {
-    #         u'Authority': u'Schreb.'
-    #     }
-    # }
 
     mapping = dict()
     prov_report = dict() 
@@ -87,16 +92,24 @@ def create_name_mapping(names):
         submittedName = name['submittedName']
 
         prov_report[submittedName] = dict()
+
         if (len(matches) >= 1):
             match = get_best_match(matches, MATCH_THRESHOLD)
             if match:
                 # match met the minimum, create a mapping
-                accepted = match['acceptedName'] 
+                accepted = match['acceptedName']
+                log_record_in(prov_report, submittedName, match, matches)
+
                 if (accepted != ""):
                     mapping[submittedName] = accepted
+            else:
+                log_record_in(prov_report, submittedName, match, matches)
 
     return mapping, prov_report
 
+
+# just testing the prov_report written to standard out
+import sys
 
 def main():
     global MATCH_THRESHOLD
@@ -109,9 +122,18 @@ def main():
     with codecs.open(fname, 'r', encoding='utf-8') as f:
         content = f.readlines()
         result = lookup_taxosaurus(''.join(content))
-#        print result
 
     (mapping, prov_report) = create_name_mapping(result['names'])
+
+#    fields = ('submittedName','accepted','sourceId','uri','score','otherMatches')
+    fields = ('submittedName','accepted','sourceId','uri','score')
+
+    headers = dict((field,field) for field in fields)
+
+    writer = csv.DictWriter(sys.stdout, fieldnames=fields)
+    writer.writerow(headers)
+    for record in prov_report.keys():
+        writer.writerow(prov_report[record])
 
     replace_names(mapping, fname, fname + '.clean')
 
