@@ -10,6 +10,7 @@ import csv
 import time
 import json
 import sys
+import os
 from optparse import OptionParser
 
 taxosaurus_url="http://taxosaurus.org/"
@@ -39,6 +40,12 @@ def get_args():
     parser = OptionParser(usage=usage)
     parser.add_option("-f", "--file", dest="filename",
               help="the file, FILE, read from...", metavar="FILE")
+    parser.add_option("-s", "--skip-gnrd", 
+              help="interpret the file as a list of scientific names, do not lookup at GNRD",
+              dest="skip_gnrd",
+              action="store_true",
+              default=False)
+              
     parser.add_option("--match-threshold", dest="m_threshold", 
               default=MATCH_THRESHOLD, help=m_thres_help, 
               metavar="MATCH_SCORE_THRESHOLD")
@@ -139,20 +146,19 @@ def create_name_mapping(names, match_threshold):
     return mapping, prov_report
 
 
-def get_names_from_file(filename):
+def get_names_from_file(filename,skip_gnrd=False):
     """
     Returns a list of names.
-    If the file is a text file, it is assumed that there is one name per line
-    If the file is a PDF file, it is sent to http://gnrd.globalnames.org/api
-    for name recognition, and the resultant list is returned
+    If use_gnrd is false, it is assumed that there is one name per line
+    If true, it is sent to http://gnrd.globalnames.org/api
+    for name recognition, and the resulting list is returned
     """
     names = []
-    if(filename.lower().endswith('.pdf')):
-        # PDF file
+    if(not skip_gnrd):
         # needs to be multipart/form-data
-        files={'file': ('filename.pdf', open(filename,'rb'))}
+        files={'file': (os.path.basename(filename), open(filename,'rb'))}
         params={'unique':'false'}
-        print("PDF Detected, Calling Global Names Discovery Service"),
+        print("Calling Global Names Discovery Service"),
         response = requests.get(gnrd_url, params=params, files=files)
         while response.json()['status'] == 303:
             print('.'),
@@ -212,7 +218,7 @@ def main():
     if (options.m_threshold != None and options.m_threshold != MATCH_THRESHOLD):
         MATCH_THRESHOLD = float(options.m_threshold)
 
-    (names, names_dict) = get_names_from_file(fname)
+    (names, names_dict) = get_names_from_file(fname, options.skip_gnrd)
     # names_dict contains results of GNRD extraction if performed
     result = lookup_taxosaurus(names)
     # Check for errors in taxosaurus lookup
