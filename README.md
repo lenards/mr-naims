@@ -7,6 +7,7 @@ A simple name cleaner in python using the [Phylotastic TNRastic API](http://www.
 
 * Python 2.7.  You should run mr-naims in a [virtualenv](http://www.virtualenv.org/)
 * [Requests: HTTP for humans](http://docs.python-requests.org/en/latest/).  Install it in your virtualenv with `pip install requests`
+* [Biopython](http://biopython.org/wiki/Main_Page).  `pip install biopython`.  Biopython requires [NumPy](http://numpy.org)
 
 ### Usage
 
