@@ -1,4 +1,9 @@
+#######################################################
+# Simple Name Cleaner 
+#   produced at Phylotastic-II / NESCent::HIP
 # 
+# TNRS Team: Dan Leehr, Andrew Lenards, Guarav Vaidya
+#######################################################
 import requests
 import codecs
 import csv
@@ -6,16 +11,19 @@ import time
 import json
 from optparse import OptionParser
 
-taxosaurus_base="http://taxosaurus.org/"
+taxosaurus_url="http://taxosaurus.org/"
+gnrd_url='http://gnrd.globalnames.org/name_finder.json'
 MATCH_THRESHOLD=0.9
 
-def lookup_taxosaurus(name):
-    payload={'query': name}
-    response = requests.post(taxosaurus_base + 'submit',params=payload)
+def lookup_taxosaurus(names):
+    print "calling taxosaurus"
+    payload={'query': '\n'.join(names)}
+    response = requests.post(taxosaurus_url + 'submit',params=payload)
     while response.status_code == 302:
         time.sleep(0.5)
         response = requests.get(response.url)
     return response.json()
+
 
 def get_args():
     m_thres_help = ("the matching score threshold to use, defined as a " \
@@ -31,9 +39,11 @@ def get_args():
               metavar="MATCH_SCORE_THRESHOLD")
     return parser.parse_args()
 
-# Returns the assumed input file
+
 def grab_file(options, args):
     """
+    Returns the assumed input file
+
     If the --file/-f argument is not pass in, assume the first
     positional argument is the filename to operate on
     """
@@ -52,9 +62,26 @@ def replace_names(mapping, source_filename, dest_filename):
                         line = val + '\n'
                 dest.write(line)
 
-# Returns the best match from the list of matches,
-# provided that the minimum score is exceeded
+
+def replace_names(names, mapping):
+    """
+    names is the original list
+    mapping is the dictionary
+    """
+    results = []
+    for name in names:
+        if name in mapping.keys():
+            results.append(mapping[name])
+        else:
+            results.append(name)
+    return results
+
+
 def get_best_match(matches, minscore):
+    """
+    Returns the best match from the list of matches,
+    provided that the minimum score is exceeded
+    """ 
     # Filter to the matches that meet the minimum score
     filtered = [m for m in matches if float(m['score']) >= minscore]
     if (len(filtered) == 0):
@@ -64,8 +91,11 @@ def get_best_match(matches, minscore):
         # sort by score and return the highest
         return sorted(filtered, key=lambda k: float(k['score']))[-1]
 
-# Mutate the report's record for a given submitted name
+
 def log_record_in(report, name, match, matches):
+    """
+    Mutate the report's record for a given submitted name
+    """
     prov_record = report[name]
     prov_record['submittedName'] = name
 #   prov_record['otherMatches'] = json.dumps(matches)
@@ -79,11 +109,11 @@ def log_record_in(report, name, match, matches):
         prov_record['score'] = match['score']
 
 
-
-# Returns the mapping of input to clean names and a report of all
-# actions taken
 def create_name_mapping(names):
-
+    """
+    Returns the mapping of input to clean names and a report of all
+    action taken
+    """
     mapping = dict()
     prov_report = dict() 
 
@@ -108,8 +138,38 @@ def create_name_mapping(names):
     return mapping, prov_report
 
 
+def get_names_from_file(filename):
+    """
+    Returns a list of names.
+    If the file is a text file, it is assumed that there is one name per line
+    If the file is a PDF file, it is sent to http://gnrd.globalnames.org/api
+    for name recognition, and the resultant list is returned
+    """
+    names = []
+    if(filename.lower().endswith('.pdf')):
+        # PDF file
+        # needs to be multipart/form-data
+        files={'file': ('filename.pdf', open(filename,'rb'))}
+        params={'unique':'true'}
+        print "calling gnrd"
+        response = requests.get(gnrd_url, params=params, files=files)
+        print response.status_code
+        while response.json()['status'] == 303:
+            print response.text
+            time.sleep(0.5)
+            response = requests.get(response.url)
+        names = [x['scientificName'] for x in response.json()['names']]
+    else:
+        # text file
+        with codecs.open(filename, 'r', encoding='utf-8') as f:
+            for line in f:
+                names.append(line.rstrip())
+    return names
+
+#######################################################
 # just testing the prov_report written to standard out
 import sys
+#######################################################
 
 def main():
     global MATCH_THRESHOLD
@@ -119,10 +179,8 @@ def main():
     if (options.m_threshold != None and options.m_threshold != MATCH_THRESHOLD):
         MATCH_THRESHOLD = float(options.m_threshold)
 
-    with codecs.open(fname, 'r', encoding='utf-8') as f:
-        content = f.readlines()
-        result = lookup_taxosaurus(''.join(content))
-
+    names = get_names_from_file(fname)
+    result = lookup_taxosaurus(names)
     (mapping, prov_report) = create_name_mapping(result['names'])
 
 #    fields = ('submittedName','accepted','sourceId','uri','score','otherMatches')
@@ -135,7 +193,13 @@ def main():
     for record in prov_report.keys():
         writer.writerow(prov_report[record])
 
-    replace_names(mapping, fname, fname + '.clean')
+    replaced = replace_names(names, mapping)
+    # For now, just write the list out to file
+    with codecs.open(fname + '.clean', 'w', encoding='utf-8') as dest:
+        for item in replaced:
+            dest.write(item + '\n')
+
+
 
 if __name__ == "__main__":
     main()
