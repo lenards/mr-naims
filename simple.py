@@ -225,7 +225,6 @@ def get_names_from_file(filename,tree_type=None):
         if None in labels:
             del labels[labels.index(None)]
         print "Extracted %d names from %s Tree" % (len(labels), type)
-        print labels
         names ='\n'.join(labels)
     else:
         names = open(filename,'rb') # open in binary in case of PDF or Office document
@@ -252,7 +251,6 @@ def main():
     else:    
         (names, names_dict) = lookup_gnrd(fname,source_names)
     # names_dict contains results of GNRD extraction if performed
-    print names
     print "Found %d names" % (len(names))
     result = lookup_taxosaurus(names,options.limit_source)
     print "Received %d matches from Taxosaurus" % (len(result['names']))
