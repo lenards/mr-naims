@@ -1,5 +1,5 @@
 #######################################################
-# NeXML reading/writing for Simple name Cleaner
+# Tree reading/writing for Simple name Cleaner
 #   produced at Phylotastic-II / NESCent::HIP
 # 
 # TNRS Team: Dan Leehr, Andrew Lenards, Guarav Vaidya
@@ -7,7 +7,7 @@
 
 import dendropy
 
-class Naixml:
+class Tree:
     def __init__(self,filename,type):
         self.tree = dendropy.Tree.get_from_path(filename, type)
 

@@ -12,7 +12,7 @@ import json
 import sys
 import os
 import types
-from nexml import Naixml
+from trees import Tree
 from optparse import OptionParser
 
 taxosaurus_url="http://taxosaurus.org/"
@@ -100,7 +100,7 @@ def replace_names_nexml(filename,mapping):
     """
     Dangerously replaces the labels in a nexml file
     """
-    n = Naixml(filename)
+    n = Tree(filename)
     n.replace_otu_labels(mapping)
     n.replace_node_labels(mapping)
     n.write_nexml_tree(filename + '.clean')
@@ -217,7 +217,7 @@ def get_names_from_file(filename,tree_type=None):
     # needs to be multipart/form-data
     if tree_type in [TYPE_NEWICK, TYPE_NEXML]:
         type = 'newick' if tree_type == TYPE_NEWICK else TYPE_NEXML
-        n = Naixml(filename, type)
+        n = Tree(filename, type)
         labels = n.get_otu_labels()
         labels = labels + n.get_node_labels()
         # uniquify
