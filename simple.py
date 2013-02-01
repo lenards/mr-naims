@@ -12,11 +12,15 @@ import json
 import sys
 import os
 import Bio.Phylo as phylo
+from nexml import Naixml
 from optparse import OptionParser
 
 taxosaurus_url="http://taxosaurus.org/"
 gnrd_url='http://gnrd.globalnames.org/name_finder.json'
 MATCH_THRESHOLD=0.9
+
+TYPE_NEWICK=1
+TYPE_NEXML=2
 
 def lookup_taxosaurus(names,limit_source):
     print('Calling Taxosaurus'),
@@ -50,9 +54,14 @@ def get_args():
               default=False)
     parser.add_option("-n", "--newick",
               help="The file is a newick tree",
-              dest="is_newick",
-              action="store_true",
-              default=False)
+              dest="type",
+              action="store_const",
+              const=TYPE_NEWICK)
+    parser.add_option("-x", "--nexml",
+              help="The file is NeXML",
+              dest="type",
+              action="store_const",
+              const=TYPE_NEXML)
     parser.add_option("--source",
               help="Limit taxosaurus to a single source: [MSW3|iPlant|NCBI]",
               dest="limit_source",
@@ -74,18 +83,6 @@ def grab_file(options, args):
         return args[0]
     return options.filename
 
-def replace_names(mapping, source_filename, dest_filename):
-    with codecs.open(source_filename, 'r', encoding='utf-8') as source:
-        with codecs.open(dest_filename, 'w', encoding='utf-8') as dest:
-            for line in source:
-                key = line.rstrip()
-                if key in mapping.keys():
-                    val = mapping[key]
-                    if (val != None):
-                        line = val + '\n'
-                dest.write(line)
-
-
 def replace_names(names, mapping):
     """
     names is the original list
@@ -99,6 +96,14 @@ def replace_names(names, mapping):
             results.append(name)
     return results
 
+def replace_names_nexml(filename,mapping):
+    """
+    Dangerously replaces the labels in a nexml file
+    """
+    n = Naixml(filename)
+    n.replace_otu_labels(mapping)
+    n.replace_node_labels(mapping)
+    n.write_tree(filename + '.clean')
 
 def get_best_match(matches):
     """
@@ -157,7 +162,7 @@ def create_name_mapping(names, match_threshold):
     return mapping, prov_report
 
 
-def get_names_from_file(filename,skip_gnrd=False,is_newick=False):
+def get_names_from_file(filename,skip_gnrd=False,tree_type=None):
     """
     Returns a list of names.
     If use_gnrd is false, it is assumed that there is one name per line
@@ -166,19 +171,29 @@ def get_names_from_file(filename,skip_gnrd=False,is_newick=False):
     """
     names = []
     
-    # If the file is a newick tree, extract the terminal nodes
-    
     if(not skip_gnrd):
         # needs to be multipart/form-data
         response = None
         files = {}
         params={'unique':'false'}
         base_filename = os.path.basename(filename)
-        if(is_newick):
+        if tree_type == TYPE_NEWICK:
             # can't send a newick tree to gnrd, send the extracted terminal node names
             tree = phylo.read(filename,'newick')
             terminal_nodes = [x.name.replace('_',' ') for x in tree.get_terminals()]
+            print "Extracted %d names from Newick terminal nodes" % (len(terminal_nodes))
             files={'file': (base_filename, '\n'.join(terminal_nodes))}
+        elif tree_type == TYPE_NEXML:
+            # extract the labels from NeXML
+            n = Naixml(filename)
+            labels = n.get_otu_labels()
+            labels = labels + n.get_node_labels()
+            # uniquify
+            labels = list(set(labels))
+            if None in labels:
+                del labels[labels.index(None)]
+            print "Extracted %d names from NeXML OTU/node labels" % (len(labels))
+            files={'file': (base_filename, '\n'.join(labels))}
         else:
             files={'file': (base_filename, open(filename,'rb'))}    
         print("Calling Global Names Discovery Service"),
@@ -222,7 +237,7 @@ def get_names_from_file(filename,skip_gnrd=False,is_newick=False):
             names_dict[scientific_name] = name_dict
         return (names_dict.keys(), names_dict)
     else:
-        # text file
+        # text file ONLY
         with codecs.open(filename, 'r', encoding='utf-8') as f:
             for line in f:
                 names.append(line.rstrip())
@@ -241,9 +256,11 @@ def main():
     if (options.m_threshold != None and options.m_threshold != MATCH_THRESHOLD):
         MATCH_THRESHOLD = float(options.m_threshold)
 
-    (names, names_dict) = get_names_from_file(fname, options.skip_gnrd, options.is_newick)
+    (names, names_dict) = get_names_from_file(fname, options.skip_gnrd, options.type)
+    print "Found %d names" % (len(names))
     # names_dict contains results of GNRD extraction if performed
     result = lookup_taxosaurus(names,options.limit_source)
+    print "Received %d matches from Taxosaurus" % (len(result['names']))
     # Check for errors in taxosaurus lookup
     for source in result['metadata']['sources']:
         if 'errorMessage' in source.keys():
@@ -263,13 +280,14 @@ def main():
     for record in prov_report.keys():
         writer.writerow({k:v.encode('utf-8') for k,v in prov_report[record].items()})
 
-    replaced = replace_names(names, mapping)
-    # For now, just write the list out to file
-    with codecs.open(fname + '.clean', 'w', encoding='utf-8') as dest:
-        for item in replaced:
-            dest.write(item + '\n')
-
-
+    if options.type == TYPE_NEXML:
+        replace_names_nexml(fname, mapping)
+    else:
+        replaced = replace_names(names, mapping)
+        # For now, just write the list out to file
+        with codecs.open(fname + '.clean', 'w', encoding='utf-8') as dest:
+            for item in replaced:
+                dest.write(item + '\n')
 
 if __name__ == "__main__":
     main()
