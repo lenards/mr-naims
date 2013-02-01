@@ -8,10 +8,10 @@
 import dendropy
 
 class Naixml:
-    def __init__(self,filename):
-        self.tree = dendropy.Tree.get_from_path(filename, 'nexml')
+    def __init__(self,filename,type):
+        self.tree = dendropy.Tree.get_from_path(filename, type)
 
-    def write_tree(self,outputname):
+    def write_nexml_tree(self,outputname):
         with open(outputname,'w') as out:
             self.tree.write(out,'nexml')
     
