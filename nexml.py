@@ -5,7 +5,6 @@
 # TNRS Team: Dan Leehr, Andrew Lenards, Guarav Vaidya
 #######################################################
 
-# Not yet called by the cleaner
 import dendropy
 
 class Naixml:
@@ -33,12 +32,3 @@ class Naixml:
         for key in mapping:
             print "Node: changing %s to %s" % (key, mapping[key])
             self.tree.find_node_with_label(key).label=mapping[key]
-
-# For simple testing, read in a nexml file, 
-# change a label, and write out a new file
-naix = Naixml('sampletree-nexml.xml')
-mapping = {'Tsukamurella paurometabola': 'CHANGED Tsukamurella paurometabola CHANGED'}
-naix.replace_otu_labels(mapping)
-naix.replace_node_labels(mapping)
-# now write out the new tree
-naix.write_tree('sampletree-nexml-changed.xml')
