@@ -243,10 +243,6 @@ def get_names_from_file(filename,skip_gnrd=False,tree_type=None):
                 names.append(line.rstrip())
     return (names, {})
 
-#######################################################
-# just testing the prov_report written to standard out
-import sys
-#######################################################
 
 def main():
     global MATCH_THRESHOLD
@@ -270,15 +266,23 @@ def main():
 
     (mapping, prov_report) = create_name_mapping(result['names'], MATCH_THRESHOLD)
 
-#    fields = ('submittedName','accepted','sourceId','uri','score','otherMatches')
-    fields = ('submittedName','accepted','sourceId','uri','score')
 
-    headers = dict((field,field) for field in fields)
+#    fields = ['submittedName','accepted','sourceId','uri','score','otherMatches']
+    fields = ['submittedName','accepted','sourceId','uri','score']
 
-    writer = csv.DictWriter(sys.stdout, fieldnames=fields)
-    writer.writerow(headers)
-    for record in prov_report.keys():
-        writer.writerow({k:v.encode('utf-8') for k,v in prov_report[record].items()})
+    pieces = fname.split('.')[:1]
+    prefix = pieces[0] if len(pieces) >= 1 else fname
+    report_filename = prefix + '_change_report.csv'
+
+    print prov_report
+
+    with codecs.open(report_filename, 'w', encoding='utf-8') as report_writer:
+        report_writer.write(', '.join(fields) + '\n')
+        for key in prov_report.keys():
+            record = prov_report[key]
+            report_writer.write(', '.join([record[field] for field in fields]) + '\n')
+#            report_writer.write(', '.join(prov_report[key].values()) + '\n')
+# [prov_report[key][field] for field in fields]
 
     if options.type == TYPE_NEXML:
         replace_names_nexml(fname, mapping)
