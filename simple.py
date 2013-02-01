@@ -11,6 +11,7 @@ import time
 import json
 import sys
 import os
+import types
 import Bio.Phylo as phylo
 from nexml import Naixml
 from optparse import OptionParser
@@ -161,87 +162,80 @@ def create_name_mapping(names, match_threshold):
 
     return mapping, prov_report
 
-
-def get_names_from_file(filename,skip_gnrd=False,tree_type=None):
+def lookup_gnrd(filename, names):
     """
-    Returns a list of names.
-    If use_gnrd is false, it is assumed that there is one name per line
-    If true, it is sent to http://gnrd.globalnames.org/api
-    for name recognition, and the resulting list is returned
+    Uses GNRD to look up the names in the provided list or file-like object
     """
-    names = []
-    
-    if(not skip_gnrd):
-        # needs to be multipart/form-data
-        response = None
-        files = {}
-        params={'unique':'false'}
-        base_filename = os.path.basename(filename)
-        if tree_type == TYPE_NEWICK:
-            # can't send a newick tree to gnrd, send the extracted terminal node names
-            tree = phylo.read(filename,'newick')
-            terminal_nodes = [x.name.replace('_',' ') for x in tree.get_terminals()]
-            print "Extracted %d names from Newick terminal nodes" % (len(terminal_nodes))
-            files={'file': (base_filename, '\n'.join(terminal_nodes))}
-        elif tree_type == TYPE_NEXML:
-            # extract the labels from NeXML
-            n = Naixml(filename)
-            labels = n.get_otu_labels()
-            labels = labels + n.get_node_labels()
-            # uniquify
-            labels = list(set(labels))
-            if None in labels:
-                del labels[labels.index(None)]
-            print "Extracted %d names from NeXML OTU/node labels" % (len(labels))
-            files={'file': (base_filename, '\n'.join(labels))}
+    files={'file': (os.path.basename(filename), names)}
+    params={'unique':'false'}
+    print("Calling Global Names Discovery Service"),
+    response = requests.get(gnrd_url, params=params, files=files)
+    while response.json()['status'] == 303:
+        print('.'),
+        sys.stdout.flush()            
+        time.sleep(0.5)
+        response = requests.get(response.url)
+    response.raise_for_status()
+    print('')
+    names_dict = {}
+    for name in response.json()['names']:
+        # response json with unique true
+        # {
+        #   "identifiedName": "Carnivora", 
+        #   "scientificName": "Carnivora", 
+        #   "verbatim": "Carnivora:"
+        # }
+        # 
+        # response json with unique false
+        # {
+        #   "identifiedName": "Halichoerus grypus", 
+        #   "offsetEnd": 3430, 
+        #   "offsetStart": 3411, 
+        #   "scientificName": "Halichoerus grypus", 
+        #   "verbatim": "(Halichoerus grypus)"
+        # }
+        scientific_name = name['scientificName']
+        name_dict = {} # keyed by scientificName
+        if scientific_name in names_dict.keys():
+            name_dict = names_dict[scientific_name]
         else:
-            files={'file': (base_filename, open(filename,'rb'))}    
-        print("Calling Global Names Discovery Service"),
-        response = requests.get(gnrd_url, params=params, files=files)
-        while response.json()['status'] == 303:
-            print('.'),
-            sys.stdout.flush()            
-            time.sleep(0.5)
-            response = requests.get(response.url)
-        response.raise_for_status()
-        print('')
-        names_dict = {}
-        for name in response.json()['names']:
-            # response json with unique true
-            # {
-            #   "identifiedName": "Carnivora", 
-            #   "scientificName": "Carnivora", 
-            #   "verbatim": "Carnivora:"
-            # }
-            # 
-            # response json with unique false
-            # {
-            #   "identifiedName": "Halichoerus grypus", 
-            #   "offsetEnd": 3430, 
-            #   "offsetStart": 3411, 
-            #   "scientificName": "Halichoerus grypus", 
-            #   "verbatim": "(Halichoerus grypus)"
-            # }
-            scientific_name = name['scientificName']
-            name_dict = {} # keyed by scientificName
-            if scientific_name in names_dict.keys():
-                name_dict = names_dict[scientific_name]
-            else:
-                name_dict['scientific_name'] = name['scientificName']
-                name_dict['verbatims'] = []
-                name_dict['identified_names'] = []
-                name_dict['offsets'] = []
-            name_dict['verbatims'].append(name['verbatim'])
-            name_dict['identified_names'].append(name['identifiedName'])
-            name_dict['offsets'].append((name['offsetStart'], name['offsetEnd']))
-            names_dict[scientific_name] = name_dict
-        return (names_dict.keys(), names_dict)
+            name_dict['scientific_name'] = name['scientificName']
+            name_dict['verbatims'] = []
+            name_dict['identified_names'] = []
+            name_dict['offsets'] = []
+        name_dict['verbatims'].append(name['verbatim'])
+        name_dict['identified_names'].append(name['identifiedName'])
+        name_dict['offsets'].append((name['offsetStart'], name['offsetEnd']))
+        names_dict[scientific_name] = name_dict
+    return (names_dict.keys(), names_dict)    
+
+def get_names_from_file(filename,tree_type=None):
+    """
+    Returns a string containing names from the file, or a file-like object to POST
+    to gnrd
+    """
+    names = None
+    # needs to be multipart/form-data
+    if tree_type == TYPE_NEWICK:
+        # can't send a newick tree to gnrd, send the extracted terminal node names
+        tree = phylo.read(filename,'newick')
+        terminal_nodes = [x.name.replace('_',' ') for x in tree.get_terminals()]
+        print "Extracted %d names from Newick terminal nodes" % (len(terminal_nodes))
+        names = '\n'.join(terminal_nodes)
+    elif tree_type == TYPE_NEXML:
+        # extract the labels from NeXML
+        n = Naixml(filename)
+        labels = n.get_otu_labels()
+        labels = labels + n.get_node_labels()
+        # uniquify
+        labels = list(set(labels))
+        if None in labels:
+            del labels[labels.index(None)]
+        print "Extracted %d names from NeXML OTU/node labels" % (len(labels))
+        names ='\n'.join(labels)
     else:
-        # text file ONLY
-        with codecs.open(filename, 'r', encoding='utf-8') as f:
-            for line in f:
-                names.append(line.rstrip())
-    return (names, {})
+        names = open(filename,'rb') # open in binary in case of PDF or Office document
+    return names
 
 #######################################################
 # just testing the prov_report written to standard out
@@ -255,10 +249,21 @@ def main():
     fname = grab_file(options, args)
     if (options.m_threshold != None and options.m_threshold != MATCH_THRESHOLD):
         MATCH_THRESHOLD = float(options.m_threshold)
-
-    (names, names_dict) = get_names_from_file(fname, options.skip_gnrd, options.type)
-    print "Found %d names" % (len(names))
+    
+    names = None
+    names_dict = None
+    
+    source_names = get_names_from_file(fname, options.type)
+    if(options.skip_gnrd):
+        if isinstance(source_names, types.StringTypes):
+            names = source_names.split('\n')
+        else:
+            names = [n.rstrip() for n in source_names.readlines()]
+    else:    
+        (names, names_dict) = lookup_gnrd(fname,source_names)
     # names_dict contains results of GNRD extraction if performed
+    print names
+    print "Found %d names" % (len(names))
     result = lookup_taxosaurus(names,options.limit_source)
     print "Received %d matches from Taxosaurus" % (len(result['names']))
     # Check for errors in taxosaurus lookup
