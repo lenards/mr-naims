@@ -12,8 +12,7 @@ import json
 import sys
 import os
 import types
-import Bio.Phylo as phylo
-from nexml import Naixml
+from trees import Tree
 from optparse import OptionParser
 
 taxosaurus_url="http://taxosaurus.org/"
@@ -101,10 +100,13 @@ def replace_names_nexml(filename,mapping):
     """
     Dangerously replaces the labels in a nexml file
     """
-    n = Naixml(filename)
+    n = Tree(filename,'nexml')
     n.replace_otu_labels(mapping)
     n.replace_node_labels(mapping)
-    n.write_tree(filename + '.clean')
+    pieces = filename.split('.')[:1]
+    prefix = pieces[0] if len(pieces) >= 1 else fname
+    report_filename = prefix + '_clean.xml'
+    n.write_nexml_tree(report_filename)
 
 def get_best_match(matches):
     """
@@ -216,22 +218,16 @@ def get_names_from_file(filename,tree_type=None):
     """
     names = None
     # needs to be multipart/form-data
-    if tree_type == TYPE_NEWICK:
-        # can't send a newick tree to gnrd, send the extracted terminal node names
-        tree = phylo.read(filename,'newick')
-        terminal_nodes = [x.name.replace('_',' ') for x in tree.get_terminals()]
-        print "Extracted %d names from Newick terminal nodes" % (len(terminal_nodes))
-        names = '\n'.join(terminal_nodes)
-    elif tree_type == TYPE_NEXML:
-        # extract the labels from NeXML
-        n = Naixml(filename)
+    if tree_type in [TYPE_NEWICK, TYPE_NEXML]:
+        type = 'newick' if tree_type == TYPE_NEWICK else 'nexml'
+        n = Tree(filename, type)
         labels = n.get_otu_labels()
         labels = labels + n.get_node_labels()
         # uniquify
         labels = list(set(labels))
         if None in labels:
             del labels[labels.index(None)]
-        print "Extracted %d names from NeXML OTU/node labels" % (len(labels))
+        print "Extracted %d names from %s Tree" % (len(labels), type)
         names ='\n'.join(labels)
     else:
         names = open(filename,'rb') # open in binary in case of PDF or Office document
@@ -258,7 +254,6 @@ def main():
     else:    
         (names, names_dict) = lookup_gnrd(fname,source_names)
     # names_dict contains results of GNRD extraction if performed
-    print names
     print "Found %d names" % (len(names))
     result = lookup_taxosaurus(names,options.limit_source)
     print "Received %d matches from Taxosaurus" % (len(result['names']))
