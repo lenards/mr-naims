@@ -103,7 +103,10 @@ def replace_names_nexml(filename,mapping):
     n = Tree(filename)
     n.replace_otu_labels(mapping)
     n.replace_node_labels(mapping)
-    n.write_nexml_tree(filename + '.clean')
+    pieces = fname.split('.')[:1]
+    prefix = pieces[0] if len(pieces) >= 1 else fname
+    report_filename = prefix + '_change_report.csv'
+    n.write_nexml_tree(report_filename)
 
 def get_best_match(matches):
     """
