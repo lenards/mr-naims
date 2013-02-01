@@ -216,7 +216,7 @@ def get_names_from_file(filename,tree_type=None):
     names = None
     # needs to be multipart/form-data
     if tree_type in [TYPE_NEWICK, TYPE_NEXML]:
-        type = 'newick' if tree_type == TYPE_NEWICK else TYPE_NEXML
+        type = 'newick' if tree_type == TYPE_NEWICK else 'nexml'
         n = Tree(filename, type)
         labels = n.get_otu_labels()
         labels = labels + n.get_node_labels()
