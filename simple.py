@@ -254,7 +254,7 @@ def main():
         if isinstance(source_names, types.StringTypes):
             names = source_names.split('\n')
         else:
-            names = [n.rstrip() for n in source_names.readlines()]
+            names = [n.rstrip().decode('utf-8') for n in source_names.readlines()]
     else:    
         (names, names_dict) = lookup_gnrd(fname,source_names)
     # names_dict contains results of GNRD extraction if performed
