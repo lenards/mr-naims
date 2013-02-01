@@ -15,7 +15,7 @@ mr-naims is a [Phylotastic 2](http://evoio.org/wiki/Phylotastic) project
 
      python simple.py [options] -f inputfile
      
-inputfile may be a PDF, image, Office Document, Text file, or Newick tree.  It will be sent to [Global Names Recognition and Discovery](http://gnrd.globalnames.org) to extract a list of scientific names, unless you specify -s/--skip-gnrd.
+inputfile may be a PDF, image, Office Document, Text file, Newick tree, or [NeXML file](http://www.nexml.org) (NeXML support is experimental).  It will be sent to [Global Names Recognition and Discovery](http://gnrd.globalnames.org) to extract a list of scientific names, unless you specify -s/--skip-gnrd.  Run `python simple.py -h` for help.
 If providing a newick tree, specify the -n option.
 
 If you would like to limit the TNRS search to a specific provider, use the --source option, e.g. `--source MSW3`
