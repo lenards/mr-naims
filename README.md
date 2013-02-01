@@ -1,7 +1,8 @@
 mr-naims
 ========
 
-A simple name cleaner in python using the [Phylotastic TNRastic API](http://www.evoio.org/wiki/Phylotastic/TNRS) at [Taxosaurus](http://taxosaurus.org)
+A simple name cleaner in python using the [Phylotastic TNRastic API](http://www.evoio.org/wiki/Phylotastic/TNRS) at [Taxosaurus](http://taxosaurus.org).  
+
 mr-naims is a [Phylotastic 2](http://evoio.org/wiki/Phylotastic) project 
 
 ### Dependencies
